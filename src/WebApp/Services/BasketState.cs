@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using eShop.WebAppComponents.Catalog;
 using eShop.WebAppComponents.Services;
+using System.Diagnostics;
+using System.Text.Json;
 
 namespace eShop.WebApp.Services;
 
@@ -32,7 +34,9 @@ public class BasketState(
 
     public async Task AddAsync(CatalogItem item)
     {
-        var items = (await FetchBasketItemsAsync()).Select(i => new BasketQuantity(i.ProductId, i.Quantity)).ToList();
+        using var activity = Activity.Current;
+        
+        var items = (await FetchBasketItemsAsync()).Select(i => new BasketQuantity(i.ProductId, i.Quantity, i.UnitPrice)).ToList();
         bool found = false;
         for (var i = 0; i < items.Count; i++)
         {
@@ -47,8 +51,10 @@ public class BasketState(
 
         if (!found)
         {
-            items.Add(new BasketQuantity(item.Id, 1));
+            items.Add(new BasketQuantity(item.Id, 1, item.Price));
         }
+
+        activity?.SetTag("items", JsonSerializer.Serialize(items.Select(i => new { i.ProductId, i.UnitPrice, i.Quantity })));
 
         _cachedBasket = null;
         await basketService.UpdateBasketAsync(items);
@@ -57,6 +63,8 @@ public class BasketState(
 
     public async Task SetQuantityAsync(int productId, int quantity)
     {
+        using var activity = Activity.Current;
+
         var existingItems = (await FetchBasketItemsAsync()).ToList();
         if (existingItems.FirstOrDefault(row => row.ProductId == productId) is { } row)
         {
@@ -69,8 +77,10 @@ public class BasketState(
                 existingItems.Remove(row);
             }
 
+            activity?.SetTag("items", JsonSerializer.Serialize(existingItems.Select(i => new { i.ProductId, i.UnitPrice, i.Quantity })));
+
             _cachedBasket = null;
-            await basketService.UpdateBasketAsync(existingItems.Select(i => new BasketQuantity(i.ProductId, i.Quantity)).ToList());
+            await basketService.UpdateBasketAsync(existingItems.Select(i => new BasketQuantity(i.ProductId, i.Quantity, i.UnitPrice)).ToList());
             await NotifyChangeSubscribersAsync();
         }
     }

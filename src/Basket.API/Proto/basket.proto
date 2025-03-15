@@ -20,6 +20,8 @@ message CustomerBasketResponse {
 message BasketItem {
     int32 product_id = 2;
     int32 quantity = 6;
+    double unit_price = 3;
+    // add unit_price
 }
 
 message UpdateBasketRequest {

@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.4.33027.239
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{932D8224-11F6-4D07-B109-DA28AD288A63}"
+	ProjectSection(SolutionItems) = preProject
+		order-load-test.js = order-load-test.js
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3AF739CD-81D8-428D-A08A-0A58372DEBF6}"
 	ProjectSection(SolutionItems) = preProject
@@ -64,6 +67,36 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClientApp", "src\ClientApp\ClientApp.csproj", "{938803BB-4F6F-4108-BDD1-2AD0180BBDC1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClientApp.UnitTests", "tests\ClientApp.UnitTests\ClientApp.UnitTests.csproj", "{02878FFB-F4DA-4996-B4A6-308851A837C6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "prometheus", "prometheus", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		prometheus.yml = prometheus.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "grafana", "grafana", "{059F5B82-6569-4243-96B3-2913758AA197}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "config", "config", "{255907CA-6373-4476-A2DA-74D9EF5F7F9B}"
+	ProjectSection(SolutionItems) = preProject
+		grafana.ini = grafana.ini
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dashboards", "dashboards", "{A03F3549-2930-40C1-9DF6-24B644FDE52D}"
+	ProjectSection(SolutionItems) = preProject
+		src\grafana\dashboards\aspnetcore-endpoint.json = src\grafana\dashboards\aspnetcore-endpoint.json
+		src\grafana\dashboards\aspnetcore.json = src\grafana\dashboards\aspnetcore.json
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "provisioning", "provisioning", "{A7583F40-8E4D-4FF1-9245-527111386E4B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dashboards", "dashboards", "{CFF4739E-D5DB-4454-9EDF-4030A08E5EBA}"
+	ProjectSection(SolutionItems) = preProject
+		src\grafana\config\provisioning\dashboards\default.yaml = src\grafana\config\provisioning\dashboards\default.yaml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "datasources", "datasources", "{9C9987EC-215B-41D6-A84A-77261DE2069A}"
+	ProjectSection(SolutionItems) = preProject
+		src\grafana\config\provisioning\datasources\default.yaml = src\grafana\config\provisioning\datasources\default.yaml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -205,6 +238,13 @@ Global
 		{66275483-5364-42F9-B7E6-410E6A1B5ECF} = {932D8224-11F6-4D07-B109-DA28AD288A63}
 		{938803BB-4F6F-4108-BDD1-2AD0180BBDC1} = {932D8224-11F6-4D07-B109-DA28AD288A63}
 		{02878FFB-F4DA-4996-B4A6-308851A837C6} = {A857AD10-40FF-4303-BEC2-FF1C58D5735E}
+		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {932D8224-11F6-4D07-B109-DA28AD288A63}
+		{059F5B82-6569-4243-96B3-2913758AA197} = {932D8224-11F6-4D07-B109-DA28AD288A63}
+		{255907CA-6373-4476-A2DA-74D9EF5F7F9B} = {059F5B82-6569-4243-96B3-2913758AA197}
+		{A03F3549-2930-40C1-9DF6-24B644FDE52D} = {059F5B82-6569-4243-96B3-2913758AA197}
+		{A7583F40-8E4D-4FF1-9245-527111386E4B} = {255907CA-6373-4476-A2DA-74D9EF5F7F9B}
+		{CFF4739E-D5DB-4454-9EDF-4030A08E5EBA} = {A7583F40-8E4D-4FF1-9245-527111386E4B}
+		{9C9987EC-215B-41D6-A84A-77261DE2069A} = {A7583F40-8E4D-4FF1-9245-527111386E4B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {25728519-5F0F-4973-8A64-0A81EB4EA8D9}

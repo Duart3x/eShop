@@ -1,10 +1,14 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using System.Diagnostics;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -61,6 +65,7 @@ public static partial class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
+                    .AddMeter("eShop.Basket.API")
                     .AddMeter("Experimental.Microsoft.Extensions.AI");
             })
             .WithTracing(tracing =>
@@ -74,7 +79,10 @@ public static partial class Extensions
                 tracing.AddAspNetCoreInstrumentation()
                     .AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddSource("Experimental.Microsoft.Extensions.AI");                    
+                    .AddEntityFrameworkCoreInstrumentation()
+                    .AddSource("eShop.WebApp.BasketService")
+                    .AddSource("Experimental.Microsoft.Extensions.AI")
+                    .AddProcessor(new SensitiveDataMaskingProcessor());
             });
 
         builder.AddOpenTelemetryExporters();
@@ -108,7 +116,7 @@ public static partial class Extensions
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
         // Uncomment the following line to enable the Prometheus endpoint (requires the OpenTelemetry.Exporter.Prometheus.AspNetCore package)
-        // app.MapPrometheusScrapingEndpoint();
+        //app.MapPrometheusScrapingEndpoint();
 
         // Adding health checks endpoints to applications in non-development environments has security implications.
         // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
@@ -125,5 +133,79 @@ public static partial class Extensions
         }
 
         return app;
+    }
+}
+
+/// <summary>
+/// Processador para mascarar dados sensíveis em telemetria
+/// </summary>
+public class SensitiveDataMaskingProcessor : BaseProcessor<Activity>
+{
+    private static readonly string[] SensitiveTagKeys =
+    {
+        "user_id", "userId", "sub", "subject", "card_number", "card_security_number",
+        "http.request.header.Authorization", "enduser.id", "user.id", "userId"
+    };
+
+    public override void OnEnd(Activity activity)
+    {
+        if (activity == null) return;
+
+        // Mascarar atributos sensíveis nos tags
+        foreach (var tag in activity.Tags.ToList())
+        {
+            foreach (var sensitiveKey in SensitiveTagKeys)
+            {
+                if (tag.Key.Contains(sensitiveKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    activity.SetTag(tag.Key, "***MASKED***");
+                }
+            }
+
+            // Verificar e mascarar valores que parecem ser IDs de utilizadores em qualquer tag
+            if (tag.Value?.ToString()?.Contains("user_id=") == true)
+            {
+                activity.SetTag(tag.Key, MaskSensitiveData(tag.Value.ToString()));
+            }
+        }
+
+        // Mascarar dados em eventos
+        foreach (var evt in activity.Events)
+        {
+            foreach (var tag in evt.Tags.ToList())
+            {
+                foreach (var sensitiveKey in SensitiveTagKeys)
+                {
+                    if (tag.Key.Contains(sensitiveKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Como não podemos modificar os Tags diretamente em um evento,
+                        // registramos que processamos a informação sensível
+                        activity.AddTag($"masked.{tag.Key}", "true");
+                    }
+                }
+            }
+        }
+
+        base.OnEnd(activity);
+    }
+
+
+
+    /// <summary>
+    /// Mascara dados sensíveis como IDs de utilizadores em strings
+    /// </summary>
+    private static string MaskSensitiveData(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+
+        // Padrão para user_id=valor em URLs
+        var userIdInUrlPattern = @"user_id=([^&\s]+)";
+        input = Regex.Replace(input, userIdInUrlPattern, "user_id=***MASKED***");
+
+        // Padrão para "sub":"valor" ou "userId":"valor" em JSON 
+        var userIdInJsonPattern = @"(""sub""|""userId""|""user_id""):""([^""]+)""";
+        input = Regex.Replace(input, userIdInJsonPattern, "$1:\"***MASKED***\"");
+
+        return input;
     }
 }

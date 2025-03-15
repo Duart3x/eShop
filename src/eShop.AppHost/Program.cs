@@ -1,4 +1,6 @@
-﻿using eShop.AppHost;
+﻿using Aspire.Hosting;
+using eShop.AppHost;
+using MetricsApp.AppHost.OpenTelemetryCollector;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -11,6 +13,30 @@ var postgres = builder.AddPostgres("postgres")
     .WithImage("ankane/pgvector")
     .WithImageTag("latest")
     .WithLifetime(ContainerLifetime.Persistent);
+
+// Add monitoring infrastructure
+var prometheus = builder.AddContainer("prometheus", "prom/prometheus:latest")
+    .WithBindMount("../prometheus", "/etc/prometheus", isReadOnly: true)
+    .WithArgs("--web.enable-otlp-receiver", "--config.file=/etc/prometheus/prometheus.yml")
+    .WithHttpEndpoint(targetPort: 9090, name: "http");
+
+var jaeger = builder.AddContainer("jaeger", "jaegertracing/all-in-one:latest")
+    .WithHttpEndpoint(targetPort: 16686, name: "ui")
+    .WithEndpoint(targetPort: 4317, name: "otlp-grpc")
+    .WithEndpoint(targetPort: 4318, name: "otlp-http")
+    .WithEnvironment("COLLECTOR_OTLP_ENABLED", "true");
+
+var grafana = builder.AddContainer("grafana", "grafana/grafana:latest")
+    .WithBindMount("../grafana/config", "/etc/grafana", isReadOnly: true)
+    .WithBindMount("../grafana/dashboards", "/var/lib/grafana/dashboards", isReadOnly: true)
+    .WithHttpEndpoint(targetPort: 3000, name: "http")
+    .WithEnvironment("GF_SECURITY_ADMIN_PASSWORD", "admin")
+    .WithEnvironment("GF_SECURITY_ADMIN_USER", "admin")
+    .WithEnvironment("PROMETHEUS_ENDPOINT", prometheus.GetEndpoint("http"));
+
+builder.AddOpenTelemetryCollector("otelcollector", "../otelcollector/config.yaml")
+       .WithEnvironment("PROMETHEUS_ENDPOINT", $"{prometheus.GetEndpoint("http")}/api/v1/otlp")
+        .WithEnvironment("JAEGER_ENDPOINT", "jaeger:4317");
 
 var catalogDb = postgres.AddDatabase("catalogdb");
 var identityDb = postgres.AddDatabase("identitydb");
@@ -89,7 +115,7 @@ if (useOllama)
 }
 
 // Wire up the callback urls (self referencing)
-webApp.WithEnvironment("CallBackUrl", webApp.GetEndpoint(launchProfileName));
+webApp.WithEnvironment("CallBackUrl", webApp.GetEndpoint(launchProfileName)).WithEnvironment("GRAFANA_URL", grafana.GetEndpoint("http")); ;
 webhooksClient.WithEnvironment("CallBackUrl", webhooksClient.GetEndpoint(launchProfileName));
 
 // Identity has a reference to all of the apps for callback urls, this is a cyclic reference

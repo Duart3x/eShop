@@ -2,6 +2,7 @@
 using eShop.Basket.API.Repositories;
 using eShop.Basket.API.Extensions;
 using eShop.Basket.API.Model;
+using System.Diagnostics;
 
 namespace eShop.Basket.API.Grpc;
 
@@ -9,6 +10,9 @@ public class BasketService(
     IBasketRepository repository,
     ILogger<BasketService> logger) : Basket.BasketBase
 {
+    //private static readonly ActivitySource ActivitySource = new("eShop.WebApp.BasketService");
+
+
     [AllowAnonymous]
     public override async Task<CustomerBasketResponse> GetBasket(GetBasketRequest request, ServerCallContext context)
     {
@@ -35,9 +39,13 @@ public class BasketService(
 
     public override async Task<CustomerBasketResponse> UpdateBasket(UpdateBasketRequest request, ServerCallContext context)
     {
+        //using var activity = ActivitySource.StartActivity("UpdateUserBasket");
+        using var activity = Activity.Current;
+
         var userId = context.GetUserIdentity();
         if (string.IsNullOrEmpty(userId))
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "The caller is not authenticated.");
             ThrowNotAuthenticated();
         }
 
@@ -46,10 +54,23 @@ public class BasketService(
             logger.LogDebug("Begin UpdateBasket call from method {Method} for basket id {Id}", context.Method, userId);
         }
 
+        activity?.SetTag("user_id", userId);
+        
         var customerBasket = MapToCustomerBasket(userId, request);
+        activity?.SetTag("basket.items", 
+            // Json of the items
+            JsonSerializer.Serialize(customerBasket.Items.Select(i => new { i.ProductId, i.Quantity, i.UnitPrice }))
+        );
+
+        // get basket monetary value from catalog service
+        decimal basketValue = customerBasket.Items.Sum(i => i.Quantity * i.UnitPrice);
+        activity.SetTag("basket.value", basketValue);
+        logger.LogInformation("User updated basket with {n} items", customerBasket.Items.Count);
+
         var response = await repository.UpdateBasketAsync(customerBasket);
         if (response is null)
         {
+            activity.SetStatus(ActivityStatusCode.Error, "Basket does not exist.");
             ThrowBasketDoesNotExist(userId);
         }
 
@@ -58,11 +79,15 @@ public class BasketService(
 
     public override async Task<DeleteBasketResponse> DeleteBasket(DeleteBasketRequest request, ServerCallContext context)
     {
+        using var activity = Activity.Current;
+
         var userId = context.GetUserIdentity();
         if (string.IsNullOrEmpty(userId))
         {
             ThrowNotAuthenticated();
         }
+
+        activity?.SetTag("user_id", userId);
 
         await repository.DeleteBasketAsync(userId);
         return new();
@@ -103,6 +128,7 @@ public class BasketService(
             {
                 ProductId = item.ProductId,
                 Quantity = item.Quantity,
+                UnitPrice = (decimal)item.UnitPrice
             });
         }
 
